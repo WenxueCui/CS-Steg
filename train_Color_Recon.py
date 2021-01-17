@@ -10,9 +10,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import pytorch_ssim
 from data_utils import TrainDatasetFromFolder2, ValDatasetFromFolder, display_transform
-from loss import GeneratorLoss
 from model import CSNet, CSNet3
 
 import torch.nn as nn
@@ -23,16 +21,6 @@ gray = transforms.Gray()
 
 parser = argparse.ArgumentParser(description='Train Super Resolution Models')
 parser.add_argument('--crop_size', default=128, type=int, help='training images crop size')
-parser.add_argument('--upscale_factor', default=1, type=int, choices=[2, 4, 8],
-                    help='super resolution upscale factor')
-parser.add_argument('--g_trigger_threshold', default=0.8, type=float, choices=[0.1, 0.2, 0.3, 0.4, 0.5],
-                    help='generator update trigger threshold')
-parser.add_argument('--g_without_trigger_threshold', default=0.6, type=float, choices=[0.1, 0.2, 0.3, 0.4, 0.5],
-                    help='generator update without trigger threshold and it must less than g_trigger_threshold')
-parser.add_argument('--g_update_number', default=3, type=int, choices=[1, 2, 3, 4, 5],
-                    help='generator update number')
-parser.add_argument('--d_update_number', default=3, type=int, choices=[1, 2, 3, 4, 5],
-                    help='generator update number')
 parser.add_argument('--pre_epochs', default=0, type=int, help='pre train generator epoch number')
 parser.add_argument('--num_epochs', default=200, type=int, help='train epoch number')
 
@@ -44,27 +32,20 @@ parser.add_argument('--blocksize', default=32, type=int, help='bitdepth for the 
 
 parser.add_argument('--loadEpoch', default=0, type=int, help='load epoch number')
 # parser.add_argument('--generatorWeights', type=str, default='', help="path to generator weights (to continue training)")
-parser.add_argument('--generatorWeights', type=str, default='pre_epochs_rate_control_0_SQ_subrate_0.8_meas_rate_control_1.2/netG_epoch_1_195.pth')
+parser.add_argument('--generatorWeights', type=str, default='epochs_rate_control_0_SQ_subrate_0.8_meas_rate_control_1.2/netG_epoch_1_195.pth')
 parser.add_argument('--enhancedWeights', type=str, default='')
 # parser.add_argument('--enhancedWeights', type=str, default='pre_epochs_rate_control_0_EN_BN_subrate_0.2_meas_rate_control_0.8/netG_epoch_1_40.pth')
-parser.add_argument('--discriminatorWeights', type=str, default='',
-                    help="path to discriminator weights (to continue training)")
 
 opt = parser.parse_args()
 
 CROP_SIZE = opt.crop_size
-UPSCALE_FACTOR = opt.upscale_factor
 NUM_EPOCHS = opt.num_epochs
 PRE_EPOCHS = opt.pre_epochs
-G_TRIGGER_THRESHOLD = opt.g_trigger_threshold
-G_WITHOUT_TRIGGER_THRESHOLD = opt.g_without_trigger_threshold
-G_UPDATE_NUMBER = opt.g_update_number
-D_UPDATE_NUMBER = opt.d_update_number
 RATE_CONTROL = opt.rate_control
 MEAS_RATE_CONTROL = opt.meas_rate_control
 LOAD_EPOCH = 0
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 train_set = TrainDatasetFromFolder2('../Datasets/VOC2012/train', crop_size=CROP_SIZE,
                                    upscale_factor=UPSCALE_FACTOR)
@@ -93,12 +74,10 @@ for i in range(0,len(blocks)):
     attr = getattr(netG, block_temp)
     for param2 in attr.parameters():
         param2.requires_grad = False
-        # print param2
-        # print param2_data
-        # break
+     
     setattr(netE, block_temp, attr)
 
-netG = 0
+netG = []
 #     print netG.block_temp
 
 mse_loss = nn.MSELoss()
@@ -107,12 +86,12 @@ if torch.cuda.is_available():
     netE.cuda()
     mse_loss.cuda()
 
-optimizerG = optim.Adam(netE.Enhanced.parameters(), lr=0.00009)
+optimizerG = optim.Adam(netE.Enhanced.parameters(), lr=0.0001)
 schedulerG = torch.optim.lr_scheduler.StepLR(optimizerG, step_size=30, gamma=0.6)
 
 results = {'d_loss': [], 'g_loss': [], 'd_score': [], 'g_score': [], 'psnr': [], 'ssim': []}
 
-############ pre training generator network for PRE-EPOCHS #############
+############ training process #############
 
 for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
     train_bar = tqdm(train_loader)
@@ -168,7 +147,7 @@ for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
             #     break
 
 
-            secret_o = netE(cover, secret, 2)
+            secret_o = netE(cover, secret, 2) # The last parameter is 2: training the Recon module.
 
             optimizerG.zero_grad()
             g_loss = mse_loss(secret_o, secret)
@@ -185,10 +164,10 @@ for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
 
             
 
-    ############## testing generator network ###############
+    ############## save the trained model ###############
 
     # save model parameters
-    save_dir = 'pre_epochs_rate_control_' + str(RATE_CONTROL) + '_EN_BN' + '_subrate_' + str(opt.sub_rate) + '_meas_rate_control_' + str(MEAS_RATE_CONTROL)
+    save_dir = 'epochs_Color' + '_subrate_' + str(opt.sub_rate)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     if epoch%5 == 0:
