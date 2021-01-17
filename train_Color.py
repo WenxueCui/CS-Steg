@@ -169,8 +169,8 @@ for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
     ############## testing generator network ###############
 
     # save model parameters
-    save_dir = 'pre_epochs_rate_control_' + str(RATE_CONTROL) + '_SQ_Color' + '_subrate_' + str(opt.sub_rate) + '_meas_rate_control_' + str(MEAS_RATE_CONTROL)
+    save_dir = 'epochs_Color' + '_subrate_' + str(opt.sub_rate)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     if epoch%5 == 0:
-        torch.save(netG.state_dict(), save_dir + '/netG_epoch_%d_%d.pth' % (UPSCALE_FACTOR, epoch))
+        torch.save(netG.state_dict(), save_dir + '/netG_epoch_%d.pth' % (epoch))
