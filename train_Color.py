@@ -10,9 +10,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import pytorch_ssim
 from data_utils import TrainDatasetFromFolder2, ValDatasetFromFolder, display_transform
-from loss import GeneratorLoss
 from model import CSNet_Color
 
 import torch.nn as nn
@@ -23,16 +21,6 @@ gray = transforms.Gray()
 
 parser = argparse.ArgumentParser(description='Train Super Resolution Models')
 parser.add_argument('--crop_size', default=128, type=int, help='training images crop size')
-parser.add_argument('--upscale_factor', default=1, type=int, choices=[2, 4, 8],
-                    help='super resolution upscale factor')
-parser.add_argument('--g_trigger_threshold', default=0.8, type=float, choices=[0.1, 0.2, 0.3, 0.4, 0.5],
-                    help='generator update trigger threshold')
-parser.add_argument('--g_without_trigger_threshold', default=0.6, type=float, choices=[0.1, 0.2, 0.3, 0.4, 0.5],
-                    help='generator update without trigger threshold and it must less than g_trigger_threshold')
-parser.add_argument('--g_update_number', default=3, type=int, choices=[1, 2, 3, 4, 5],
-                    help='generator update number')
-parser.add_argument('--d_update_number', default=3, type=int, choices=[1, 2, 3, 4, 5],
-                    help='generator update number')
 parser.add_argument('--pre_epochs', default=70, type=int, help='pre train generator epoch number')
 parser.add_argument('--num_epochs', default=200, type=int, help='train epoch number')
 
@@ -51,18 +39,13 @@ parser.add_argument('--discriminatorWeights', type=str, default='',
 opt = parser.parse_args()
 
 CROP_SIZE = opt.crop_size
-UPSCALE_FACTOR = opt.upscale_factor
 NUM_EPOCHS = opt.num_epochs
 PRE_EPOCHS = opt.pre_epochs
-G_TRIGGER_THRESHOLD = opt.g_trigger_threshold
-G_WITHOUT_TRIGGER_THRESHOLD = opt.g_without_trigger_threshold
-G_UPDATE_NUMBER = opt.g_update_number
-D_UPDATE_NUMBER = opt.d_update_number
 RATE_CONTROL = opt.rate_control
 MEAS_RATE_CONTROL = opt.meas_rate_control
 LOAD_EPOCH = 0
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 train_set = TrainDatasetFromFolder2('../Datasets/VOC2012/train', crop_size=CROP_SIZE,
                                    upscale_factor=UPSCALE_FACTOR)
@@ -103,15 +86,6 @@ for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
         if batch_size <= 0:
             continue
 
-        # data_temp = torch.FloatTensor(batch_size, 1, opt.crop_size, opt.crop_size)
-        # target_temp = torch.FloatTensor(batch_size, 1, opt.crop_size, opt.crop_size)
-
-        # convert the rgb images to the gray scale images.
-        # for j in range(batch_size):
-        #     data_temp[j] = gray(data[j])
-        #     target_temp[j] = gray(target[j])
-        # data = data_temp
-        # target = target_temp
         running_results['batch_sizes'] += batch_size
 
         secret = Variable(target)
@@ -121,12 +95,9 @@ for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
         if torch.cuda.is_available():
             cover = cover.cuda()
         if epoch < PRE_EPOCHS:
-            meas, fake_img = netG(cover, secret, 0)
+            meas, fake_img = netG(cover, secret, 0)   # the last parameter is 0: training the SMG module.
             optimizerG.zero_grad()
             g_loss = mse_loss(fake_img, secret)
-            # meas_real = Variable(torch.zeros(meas.shape).cuda())
-            # rate_control_loss = mse_loss(meas, meas_real)
-            # total_loss = g_loss + RATE_CONTROL*rate_control_loss
 
             g_loss.backward()
 
@@ -138,16 +109,15 @@ for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
                 epoch, PRE_EPOCHS, running_results['g_loss'] / running_results['batch_sizes']))
 
         else:
-            # print netG
+            # no more training the sampling layer.
+            
             for param2 in netG.parameters():
                 param2.requires_grad = False
-                # print param2
-                # print param2_data
                 break
 
 
-            meas, cover_o, meas_o = netG(cover, secret, 1)
-            # print meas, cover_o, meas_o
+            meas, cover_o, meas_o = netG(cover, secret, 1)  # The last parameter is 1: training the Steg module.
+            
             optimizerG.zero_grad()
             g_loss = mse_loss(cover_o, cover)
             meas_real = Variable(torch.zeros(meas.shape).cuda()+meas.data)
