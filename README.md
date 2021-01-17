@@ -2,7 +2,7 @@
 
 This the source code of the paper "When Steganography Meet Compressed Sensing"
 
-![image](https://github.com/WenxueCui/CS-Steg/raw/master/images/framework.jpg)
+![image](https://github.com/WenxueCui/CS-Steg/raw/main/images/framework.jpg)
 
 ## Requirements and Dependencies
 
