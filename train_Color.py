@@ -73,7 +73,7 @@ schedulerG = torch.optim.lr_scheduler.StepLR(optimizerG, step_size=20, gamma=0.5
 
 results = {'d_loss': [], 'g_loss': [], 'd_score': [], 'g_score': [], 'psnr': [], 'ssim': []}
 
-############ pre training generator network for PRE-EPOCHS #############
+############ training process for SMG and Steg modules #############
 
 for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
     train_bar = tqdm(train_loader)
@@ -94,7 +94,7 @@ for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
         cover = Variable(data)
         if torch.cuda.is_available():
             cover = cover.cuda()
-        if epoch < PRE_EPOCHS:
+        if epoch < PRE_EPOCHS:   # The first PRE_EPOCHS is for training the SMG module. 
             meas, fake_img = netG(cover, secret, 0)   # the last parameter is 0: training the SMG module.
             optimizerG.zero_grad()
             g_loss = mse_loss(fake_img, secret)
@@ -108,7 +108,7 @@ for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
             train_bar.set_description(desc='[%d/%d] Loss_G: %.4f' % (
                 epoch, PRE_EPOCHS, running_results['g_loss'] / running_results['batch_sizes']))
 
-        else:
+        else:  # The last epochs for training the Steg module.
             # no more training the sampling layer.
             
             for param2 in netG.parameters():
@@ -136,7 +136,7 @@ for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
 
 
 
-    ############## testing generator network ###############
+    ############## save the model ###############
 
     # save model parameters
     save_dir = 'epochs_Color' + '_subrate_' + str(opt.sub_rate)
