@@ -47,7 +47,7 @@ In our code, two model version are included:
 ## CSNet results
 ### Subjective results
 
-![image](https://github.com/WenxueCui/CS-Steg/raw/master/images/results.jpg)
+![image](https://github.com/WenxueCui/CS-Steg/raw/master/images/results.png)
 
 ### Objective results
 ![image](https://github.com/WenxueCui/CS-Steg/raw/master/images/table.jpg)
