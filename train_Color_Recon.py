@@ -139,14 +139,7 @@ for epoch in range(LOAD_EPOCH+1, NUM_EPOCHS + 1):
                 epoch, PRE_EPOCHS, running_results['g_loss'] / running_results['batch_sizes']))
 
         else:
-            # print netG
-            # for param2 in netG.parameters():
-            #     param2.requires_grad = False
-            #     # print param2
-            #     # print param2_data
-            #     break
-
-
+           
             secret_o = netE(cover, secret, 2) # The last parameter is 2: training the Recon module.
 
             optimizerG.zero_grad()
